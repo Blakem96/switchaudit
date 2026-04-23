@@ -1,0 +1,22 @@
+switches: []
+# Add switch IPs here, e.g.:
+# switches:
+#   - 10.0.0.1
+#   - 10.0.0.2
+
+vlan_watchlist:
+  - GLOBAL
+  - NIMS
+  - WIRELESS
+  - PRINT
+  - BMS
+  - AV
+
+# Netmiko device type for target switches
+device_type: cisco_ios
+
+# Keyring service name (used to namespace stored credentials)
+keyring_service: switch-auditor
+
+# Documents output folder
+documents_dir: documents/switches
