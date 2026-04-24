@@ -140,6 +140,14 @@ Run this **before** any firmware changes. The tool connects to the switch, runs 
 python main.py pre --switch 10.0.0.1
 ```
 
+To also capture the full running configuration for a pre/post diff, add `--config-diff`:
+
+```bash
+python main.py pre --switch 10.0.0.1 --config-diff
+```
+
+> **Security note:** The running config contains sensitive data including password hashes and SNMP community strings. The saved `.txt` file lives in `documents/` which is excluded from git, but treat it with the same care as any other sensitive document.
+
 Example output:
 
 ```
@@ -149,7 +157,9 @@ Running pre-update checks...
   [PASS] boot_source: Boot source confirmed as packages.conf
   [PASS] vlan_membership: GLOBAL: VLAN 10 (42 MACs)
   [PASS] cdp_neighbors: Captured 8 CDP neighbor(s)
+  Capturing running config...
 Snapshot saved: documents/switches/10.0.0.1_CORE-SW-01/2024-11-15_09-30_pre.json
+Running config saved: documents/switches/10.0.0.1_CORE-SW-01/2024-11-15_09-30_pre_running-config.txt
 Pre-update snapshot complete.
 ```
 
@@ -180,6 +190,14 @@ Use the `--report` flag on the `post` command to run both steps at once:
 ```bash
 python main.py post --switch 10.0.0.1 --report
 ```
+
+Flags can be combined — capture config and generate the report in a single step:
+
+```bash
+python main.py post --switch 10.0.0.1 --config-diff --report
+```
+
+If `--config-diff` was used for both `pre` and `post`, the report will automatically include a running config diff section. If only one phase has a config file, the diff section is omitted.
 
 ### Clear stored credentials
 
@@ -251,9 +269,11 @@ All output lives under `documents/switches/` which is excluded from git via `.gi
 documents/
 └── switches/
     └── <ip>_<hostname>/
-        ├── YYYY-MM-DD_HH-MM_pre.json      ← raw pre-update snapshot
-        ├── YYYY-MM-DD_HH-MM_post.json     ← raw post-update snapshot
-        └── YYYY-MM-DD_HH-MM_report.txt    ← human-readable audit report
+        ├── YYYY-MM-DD_HH-MM_pre.json                   ← raw pre-update snapshot
+        ├── YYYY-MM-DD_HH-MM_pre_running-config.txt     ← pre running config (if --config-diff used)
+        ├── YYYY-MM-DD_HH-MM_post.json                  ← raw post-update snapshot
+        ├── YYYY-MM-DD_HH-MM_post_running-config.txt    ← post running config (if --config-diff used)
+        └── YYYY-MM-DD_HH-MM_report.txt                 ← human-readable audit report
 ```
 
 - **JSON snapshots** — complete structured data from every check; useful for re-running the report without reconnecting.
