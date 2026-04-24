@@ -1,3 +1,4 @@
+import difflib
 from datetime import datetime
 from pathlib import Path
 
@@ -46,12 +47,23 @@ def diff_cdp(pre_neighbors: list, post_neighbors: list) -> dict:
     }
 
 
+def diff_running_config(pre_config: str, post_config: str, pre_label: str, post_label: str) -> str:
+    pre_lines = pre_config.splitlines(keepends=True)
+    post_lines = post_config.splitlines(keepends=True)
+    diff = list(difflib.unified_diff(pre_lines, post_lines, fromfile=pre_label, tofile=post_label))
+    if not diff:
+        return ""
+    return "".join(diff)
+
+
 def build_report(
     ip: str,
     pre: dict,
     post: dict,
     pre_path: Path,
     post_path: Path,
+    pre_config: str | None = None,
+    post_config: str | None = None,
 ) -> str:
     lines = []
     a = lines.append
@@ -126,6 +138,25 @@ def build_report(
             a("  CDP neighbor list unchanged.")
     else:
         a("  CDP data unavailable.")
+
+    # --- Running config diff ---
+    if pre_config is not None and post_config is not None:
+        a("")
+        a("RUNNING CONFIG DIFF")
+        a(_hr())
+        a("  WARNING: This diff may contain sensitive data (passwords, SNMP")
+        a("  community strings). Handle this report accordingly.")
+        a(_hr("-", 40))
+        diff_text = diff_running_config(
+            pre_config, post_config,
+            pre_path.name.replace(".json", "_running-config.txt"),
+            post_path.name.replace(".json", "_running-config.txt"),
+        )
+        if diff_text:
+            for line in diff_text.splitlines():
+                a(f"  {line}")
+        else:
+            a("  No differences in running configuration.")
 
     # --- Summary ---
     a("")

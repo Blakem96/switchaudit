@@ -41,6 +41,28 @@ def load_latest_snapshot(ip: str, phase: str) -> tuple[dict, Path]:
         return json.load(f), latest
 
 
+def save_running_config(ip: str, hostname: str, phase: str, config: str) -> Path:
+    folder = _switch_dir(ip, hostname)
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    filename = folder / f"{ts}_{phase}_running-config.txt"
+    with open(filename, "w") as f:
+        f.write(config)
+    print(f"Running config saved: {filename}")
+    return filename
+
+
+def load_latest_running_config(ip: str, phase: str) -> tuple[str, Path] | None:
+    cfg = _load_config()
+    base = Path(cfg.get("documents_dir", "documents/switches"))
+    candidates = []
+    for folder in base.glob(f"{ip}_*"):
+        candidates.extend(folder.glob(f"*_{phase}_running-config.txt"))
+    if not candidates:
+        return None
+    latest = max(candidates, key=lambda p: p.stat().st_mtime)
+    return latest.read_text(), latest
+
+
 def save_report(ip: str, hostname: str, content: str) -> Path:
     folder = _switch_dir(ip, hostname)
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M")

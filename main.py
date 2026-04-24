@@ -7,7 +7,7 @@ import sys
 import click
 
 from connect import open_connection, clear_credentials
-from snapshot import save_snapshot, load_latest_snapshot, save_report
+from snapshot import save_snapshot, load_latest_snapshot, save_report, save_running_config, load_latest_running_config
 from report import build_report
 from checks.boot import BootSourceCheck
 from checks.vlans import VlanCheck
@@ -41,7 +41,9 @@ def cli():
 
 @cli.command()
 @click.option("--switch", required=True, help="Switch IP address")
-def pre(switch: str):
+@click.option("--config-diff", is_flag=True, default=False,
+              help="Capture running config for pre/post diff (may contain sensitive data)")
+def pre(switch: str, config_diff: bool):
     """Connect to a switch and capture the pre-update snapshot."""
     conn = open_connection(switch)
     try:
@@ -49,6 +51,9 @@ def pre(switch: str):
         print(f"Connected to {hostname} ({switch})")
         print("Running pre-update checks...")
         checks_summary, snapshot_data = _run_checks(conn)
+        if config_diff:
+            print("  Capturing running config...")
+            running_config = conn.send_command("show running-config")
     finally:
         conn.disconnect()
 
@@ -59,6 +64,8 @@ def pre(switch: str):
         **snapshot_data,
     }
     save_snapshot(switch, hostname, "pre", full_snapshot)
+    if config_diff:
+        save_running_config(switch, hostname, "pre", running_config)
     print("Pre-update snapshot complete.")
 
 
@@ -66,7 +73,9 @@ def pre(switch: str):
 @click.option("--switch", required=True, help="Switch IP address")
 @click.option("--report", "gen_report", is_flag=True, default=False,
               help="Generate audit report immediately after post check")
-def post(switch: str, gen_report: bool):
+@click.option("--config-diff", is_flag=True, default=False,
+              help="Capture running config for pre/post diff (may contain sensitive data)")
+def post(switch: str, gen_report: bool, config_diff: bool):
     """Connect to a switch and capture the post-update snapshot."""
     conn = open_connection(switch)
     try:
@@ -74,6 +83,9 @@ def post(switch: str, gen_report: bool):
         print(f"Connected to {hostname} ({switch})")
         print("Running post-update checks...")
         checks_summary, snapshot_data = _run_checks(conn)
+        if config_diff:
+            print("  Capturing running config...")
+            running_config = conn.send_command("show running-config")
     finally:
         conn.disconnect()
 
@@ -84,6 +96,8 @@ def post(switch: str, gen_report: bool):
         **snapshot_data,
     }
     post_path = save_snapshot(switch, hostname, "post", full_snapshot)
+    if config_diff:
+        save_running_config(switch, hostname, "post", running_config)
     print("Post-update snapshot complete.")
 
     if gen_report:
@@ -106,7 +120,14 @@ def _generate_report(switch, hostname, post_path, pre_data=None, pre_path=None, 
     if post_data is None:
         post_data, _ = load_latest_snapshot(switch, "post")
 
-    content = build_report(switch, pre_data, post_data, pre_path, post_path)
+    pre_config = post_config = None
+    pre_cfg_result = load_latest_running_config(switch, "pre")
+    post_cfg_result = load_latest_running_config(switch, "post")
+    if pre_cfg_result and post_cfg_result:
+        pre_config, _ = pre_cfg_result
+        post_config, _ = post_cfg_result
+
+    content = build_report(switch, pre_data, post_data, pre_path, post_path, pre_config, post_config)
     print()
     print(content)
     save_report(switch, hostname, content)
