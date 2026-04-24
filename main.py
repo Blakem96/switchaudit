@@ -24,8 +24,8 @@ def _run_checks(conn) -> tuple[dict, dict]:
 
     for check in CHECKS:
         result = check.run(conn, snapshot_data)
-        status = "PASS" if result.passed else "FAIL"
-        print(f"  [{status}] {result.name}: {result.detail.splitlines()[0]}")
+        status_str = click.style("[PASS]", fg="green") if result.passed else click.style("[FAIL]", fg="red", bold=True)
+        click.echo(f"  {status_str} {result.name}: {result.detail.splitlines()[0]}")
         checks_summary[result.name] = {
             "passed": result.passed,
             "detail": result.detail,
@@ -128,9 +128,20 @@ def _generate_report(switch, hostname, post_path, pre_data=None, pre_path=None, 
         post_config, _ = post_cfg_result
 
     content = build_report(switch, pre_data, post_data, pre_path, post_path, pre_config, post_config)
-    print()
-    print(content)
+    click.echo()
+    _print_colourised_report(content)
     save_report(switch, hostname, content)
+
+
+def _print_colourised_report(content: str):
+    """Print report to terminal with colourised OVERALL RESULT line."""
+    for line in content.splitlines():
+        if line.startswith("OVERALL RESULT: PASS"):
+            click.echo("OVERALL RESULT: " + click.style("PASS", fg="green"))
+        elif line.startswith("OVERALL RESULT: FAIL"):
+            click.echo("OVERALL RESULT: " + click.style("FAIL", fg="red", bold=True))
+        else:
+            click.echo(line)
 
 
 @cli.command("clear-creds")
